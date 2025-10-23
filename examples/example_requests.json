@@ -1,0 +1,77 @@
+{
+  "simple_react_component": {
+    "prompt": "Create a Card component with image, title, description, and a button",
+    "code_type": "component",
+    "framework": "react",
+    "styling": "tailwindcss"
+  },
+  
+  "production_react_app": {
+    "prompt": "Create a todo application with add, edit, delete, and mark as complete functionality. Include dark mode toggle and local storage persistence.",
+    "code_type": "frontend",
+    "framework": "react",
+    "production_ready": true,
+    "include_tests": true,
+    "styling": "tailwindcss"
+  },
+  
+  "nodejs_rest_api": {
+    "prompt": "Create a REST API for a blog with posts and comments. Include user authentication with JWT, CRUD operations for posts, and nested comments.",
+    "code_type": "backend",
+    "framework": "express",
+    "production_ready": true,
+    "include_tests": true
+  },
+  
+  "fullstack_app": {
+    "prompt": "Create a task management application with user authentication, project boards, drag-and-drop tasks, and real-time updates.",
+    "code_type": "fullstack",
+    "production_ready": true,
+    "include_tests": true,
+    "additional_context": {
+      "database": "PostgreSQL",
+      "real_time": "WebSockets",
+      "deployment": "Docker"
+    }
+  },
+  
+  "landing_page": {
+    "prompt": "Create a modern landing page for a SaaS product with hero section, features grid, pricing table, testimonials, and contact form",
+    "code_type": "frontend",
+    "framework": "nextjs",
+    "production_ready": true,
+    "styling": "tailwindcss"
+  },
+  
+  "dashboard": {
+    "prompt": "Create an admin dashboard with sidebar navigation, analytics charts, data tables with sorting and filtering, and user management",
+    "code_type": "frontend",
+    "framework": "react-typescript",
+    "production_ready": true,
+    "styling": "tailwindcss",
+    "additional_context": {
+      "charts": "recharts",
+      "tables": "react-table"
+    }
+  },
+  
+  "authentication_system": {
+    "prompt": "Create a complete authentication system with login, signup, password reset, email verification, and protected routes",
+    "code_type": "fullstack",
+    "production_ready": true,
+    "include_tests": true
+  },
+  
+  "api_with_db": {
+    "prompt": "Create a REST API for an e-commerce platform with products, categories, cart, and orders. Include PostgreSQL database models and migrations.",
+    "code_type": "backend",
+    "framework": "express",
+    "production_ready": true,
+    "include_tests": true,
+    "additional_context": {
+      "database": "PostgreSQL",
+      "orm": "Prisma"
+    }
+  }
+}
+
