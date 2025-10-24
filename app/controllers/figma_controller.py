@@ -415,10 +415,17 @@ class FigmaController:
         Process Figma URL through complete pipeline
         """
         try:
-            # Get connection
+            # Get connection - try user-specific first, then fallback to global
             connection = await self.cache_service.get(f"figma_connection:{user_id}")
             if not connection:
-                raise Exception("Figma account not connected")
+                # Fallback to global access token from environment
+                print(f"DEBUG: FIGMA_ACCESS_TOKEN from settings: {settings.FIGMA_ACCESS_TOKEN}")
+                if settings.FIGMA_ACCESS_TOKEN:
+                    connection = {"access_token": settings.FIGMA_ACCESS_TOKEN}
+                    print(f"DEBUG: Using global access token: {settings.FIGMA_ACCESS_TOKEN[:10]}...")
+                else:
+                    print("DEBUG: No global access token found")
+                    raise Exception("Figma account not connected and no global access token configured")
             
             # Process Figma URL through new pipeline
             processing_result = await self.figma_processor.process_figma_url(
@@ -482,10 +489,14 @@ class FigmaController:
         Validate Figma JSON structure and size
         """
         try:
-            # Get connection
+            # Get connection - try user-specific first, then fallback to global
             connection = await self.cache_service.get(f"figma_connection:{user_id}")
             if not connection:
-                raise Exception("Figma account not connected")
+                # Fallback to global access token from environment
+                if settings.FIGMA_ACCESS_TOKEN:
+                    connection = {"access_token": settings.FIGMA_ACCESS_TOKEN}
+                else:
+                    raise Exception("Figma account not connected and no global access token configured")
             
             # Get Figma JSON
             figma_json = await self.figma_processor.get_figma_json(
@@ -515,10 +526,14 @@ class FigmaController:
         Extract image references from Figma file
         """
         try:
-            # Get connection
+            # Get connection - try user-specific first, then fallback to global
             connection = await self.cache_service.get(f"figma_connection:{user_id}")
             if not connection:
-                raise Exception("Figma account not connected")
+                # Fallback to global access token from environment
+                if settings.FIGMA_ACCESS_TOKEN:
+                    connection = {"access_token": settings.FIGMA_ACCESS_TOKEN}
+                else:
+                    raise Exception("Figma account not connected and no global access token configured")
             
             # Get Figma JSON
             figma_json = await self.figma_processor.get_figma_json(

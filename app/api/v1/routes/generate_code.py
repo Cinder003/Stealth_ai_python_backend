@@ -8,6 +8,7 @@ from app.models.enums import Framework, CodeType
 from app.services.llm_service import get_llm_service, LLMService
 from app.services.code_extraction_service import get_code_extraction_service, CodeExtractionService
 from app.services.cache_service import get_cache_service, CacheService
+from app.services.file_service import FileService
 from app.helpers.prompt_builder import PromptBuilder
 from app.helpers.validation import validate_code_request
 from app.helpers.rate_limiter import get_rate_limiter
@@ -95,6 +96,13 @@ async def generate_code(
         
         logger.info(f"LLM response received (length: {len(llm_response)})")
         
+        # Log the raw LLM response for debugging
+        logger.info("=" * 80)
+        logger.info("RAW GEMINI OUTPUT:")
+        logger.info("=" * 80)
+        logger.info(llm_response)
+        logger.info("=" * 80)
+        
         # Extract code files from response
         extraction_service = get_code_extraction_service()
         generated_files = extraction_service.extract_files_from_response(llm_response)
@@ -106,13 +114,24 @@ async def generate_code(
         
         logger.info(f"Extracted {len(generated_files)} files")
         
+        # Save files to disk using the new file saving system
+        try:
+            from app.services.llm_result_handler import handle_and_save
+            save_result = handle_and_save(llm_response, create_zip=True)
+            logger.info(f"Files saved to project: {save_result['project_id']}")
+            logger.info(f"Download URL: {save_result['download_url']}")
+        except Exception as save_error:
+            logger.warning(f"File saving failed: {save_error}")
+            # Continue without failing the request
+            save_result = {"project_id": None, "download_url": None, "saved_files_count": 0}
+        
         # Convert to response format
         file_outputs = [
             FileOutput(
                 path=f.path,
                 content=f.content,
                 language=f.language,
-                size_bytes=f.size_bytes
+                size=f.size_bytes
             )
             for f in generated_files
         ]
@@ -132,6 +151,12 @@ async def generate_code(
             model_used=request.model.value,
             message="Code generated successfully"
         )
+        
+        # Add file saving information to response
+        if save_result.get("project_id"):
+            response.project_id = save_result["project_id"]
+            response.download_url = save_result["download_url"]
+            response.saved_files_count = save_result["saved_files_count"]
         
         # Cache the result
         await cache_service.cache_generation(

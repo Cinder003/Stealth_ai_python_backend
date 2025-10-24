@@ -51,10 +51,10 @@ class JobStatus(str, Enum):
 
 class LLMModel(str, Enum):
     """Supported LLM models"""
-    GEMINI_PRO = "gemini/gemini-pro"
-    GEMINI_PRO_VISION = "gemini/gemini-pro-vision"
-    GEMINI_15_PRO = "gemini/gemini-1.5-pro-latest"
-    GEMINI_15_FLASH = "gemini/gemini-1.5-flash-latest"
+    GEMINI_PRO = "gemini/gemini-pro-latest"
+    GEMINI_PRO_VISION = "gemini/gemini-pro-latest"
+    GEMINI_15_PRO = "gemini/gemini-2.5-pro"
+    GEMINI_15_FLASH = "gemini/gemini-flash-latest"
 
 
 class PromptType(str, Enum):

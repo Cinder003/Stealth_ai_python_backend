@@ -123,7 +123,7 @@ class LLMService:
     async def generate_code(
         self,
         prompt: str,
-        model: str = "gemini/gemini-1.5-flash-latest",
+        model: str = "gemini/gemini-flash-latest",
         max_tokens: int = 8000,
         temperature: float = 0.7
     ) -> str:

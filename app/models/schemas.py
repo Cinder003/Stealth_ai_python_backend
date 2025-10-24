@@ -119,14 +119,30 @@ class GenerateCodeRequest(BaseModel):
         super().__init__(**data)
 
 
+class FileOutput(BaseModel):
+    """File output model"""
+    path: str = Field(..., description="File path")
+    content: str = Field(..., description="File content")
+    language: str = Field(..., description="Programming language")
+    size: int = Field(..., description="File size in bytes")
+    metadata: Dict[str, Any] = Field(default={}, description="File metadata")
+
+
 class GenerateCodeResponse(BaseModel):
     """Code generation response"""
     success: bool = True
-    generated_code: Dict[str, str] = Field(..., description="Generated code files")
-    metadata: Dict[str, Any] = Field(default={}, description="Generation metadata")
-    execution_time: float = Field(..., description="Generation time in seconds")
-    tokens_used: Optional[int] = Field(default=None, description="LLM tokens used")
+    files: List[FileOutput] = Field(..., description="Generated code files")
+    framework_detected: str = Field(..., description="Detected framework")
+    total_files: int = Field(..., description="Total number of files generated")
+    total_lines: int = Field(..., description="Total lines of code generated")
+    generation_time_seconds: float = Field(..., description="Generation time in seconds")
     model_used: Optional[str] = Field(default=None, description="LLM model used")
+    message: str = Field(default="Code generated successfully", description="Response message")
+    
+    # File saving information
+    project_id: Optional[str] = Field(default=None, description="Project ID for saved files")
+    download_url: Optional[str] = Field(default=None, description="URL to download project ZIP")
+    saved_files_count: Optional[int] = Field(default=None, description="Number of files saved to disk")
 
 
 class EnhancedGenerateRequest(BaseModel):
@@ -214,14 +230,6 @@ class FileUploadResponse(BaseModel):
     size: int = Field(..., description="File size in bytes")
     content_type: str = Field(..., description="File MIME type")
     upload_path: str = Field(..., description="File storage path")
-    metadata: Dict[str, Any] = Field(default={}, description="File metadata")
-
-class FileOutput(BaseModel):
-    """File output model"""
-    path: str = Field(..., description="File path")
-    content: str = Field(..., description="File content")
-    language: str = Field(..., description="Programming language")
-    size: int = Field(..., description="File size in bytes")
     metadata: Dict[str, Any] = Field(default={}, description="File metadata")
 
 

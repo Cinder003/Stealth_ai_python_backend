@@ -3,22 +3,22 @@
 model_list:
   - model_name: gemini-pro
     litellm_params:
-      model: gemini/gemini-pro
+      model: gemini/gemini-pro-latest
       api_key: os.environ/GEMINI_API_KEY
   
-  - model_name: gemini-pro-vision
+  - model_name: gemini-flash
     litellm_params:
-      model: gemini/gemini-pro-vision
+      model: gemini/gemini-flash-latest
       api_key: os.environ/GEMINI_API_KEY
   
-  - model_name: gemini-1.5-pro
+  - model_name: gemini-2.5-pro
     litellm_params:
-      model: gemini/gemini-1.5-pro-latest
+      model: gemini/gemini-2.5-pro
       api_key: os.environ/GEMINI_API_KEY
   
-  - model_name: gemini-1.5-flash
+  - model_name: gemini-2.5-flash
     litellm_params:
-      model: gemini/gemini-1.5-flash-latest
+      model: gemini/gemini-2.5-flash
       api_key: os.environ/GEMINI_API_KEY
 
 litellm_settings:
