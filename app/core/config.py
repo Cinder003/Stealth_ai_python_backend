@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     LITELLM_URL: str = Field(default="http://litellm:4000")
     LITELLM_API_KEY: Optional[str] = Field(default=None)
     LITELLM_MASTER_KEY: Optional[str] = Field(default=None)
-    LITELLM_TIMEOUT: int = Field(default=300)
+    LITELLM_TIMEOUT: int = Field(default=600)  # Increased for large file processing
     LITELLM_MAX_RETRIES: int = Field(default=3)
     GEMINI_API_KEY: Optional[str] = Field(default=None)
     

@@ -30,7 +30,7 @@ Generate code based on natural language description.
   "prompt": "Create a React todo app with dark mode toggle",
   "code_type": "frontend",
   "framework": "react",
-  "model": "gemini/gemini-1.5-flash-latest",
+  "model": "gemini-2.5-flash",
   "include_tests": false,
   "include_documentation": false,
   "production_ready": true,
@@ -48,7 +48,7 @@ Generate code based on natural language description.
 | `prompt` | string | Yes | - | Natural language description (10-10000 chars) |
 | `code_type` | enum | No | `frontend` | `frontend`, `backend`, `fullstack`, `component`, `api`, `utility` |
 | `framework` | enum | No | Auto-detect | See frameworks list below |
-| `model` | enum | No | `gemini-1.5-flash` | LLM model to use |
+| `model` | enum | No | `gemini-2.5-flash` | LLM model to use |
 | `include_tests` | boolean | No | `false` | Include test files |
 | `include_documentation` | boolean | No | `false` | Include README and docs |
 | `production_ready` | boolean | No | `false` | Add production features |
@@ -78,7 +78,7 @@ Backend: `nodejs`, `express`, `fastapi`, `flask`, `django`, `nestjs`
   "total_files": 5,
   "total_lines": 250,
   "generation_time_seconds": 3.45,
-  "model_used": "gemini/gemini-1.5-flash-latest",
+  "model_used": "gemini-2.5-flash",
   "tokens_used": 1500,
   "message": "Code generated successfully"
 }

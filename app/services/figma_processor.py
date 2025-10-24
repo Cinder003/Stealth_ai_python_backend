@@ -40,7 +40,7 @@ class FigmaProcessor:
     
     def __init__(self):
         self.base_url = "https://api.figma.com/v1"
-        self.timeout = 30.0
+        self.timeout = 120.0  # Increased for large file processing
         
         # Regex patterns for Figma URL parsing
         self.url_patterns = [
@@ -195,7 +195,7 @@ class FigmaProcessor:
         return processed_json
     
     def validate_figma_json(self, figma_json: Dict[str, Any]) -> Tuple[bool, List[str]]:
-        """Validate Figma JSON structure and size"""
+        """Validate Figma JSON structure and size with intelligent processing for large files"""
         errors = []
         
         # Check required fields
@@ -218,10 +218,17 @@ class FigmaProcessor:
         if json_size > 50 * 1024 * 1024:  # 50MB limit
             errors.append(f"JSON too large: {json_size / 1024 / 1024:.1f}MB")
         
-        # Check node count
+        # Check node count - use intelligent processing for large files
         node_count = self._count_nodes(figma_json)
         if node_count > 10000:  # 10k nodes limit
-            errors.append(f"Too many nodes: {node_count}")
+            # Instead of rejecting, analyze structure for screen-by-screen processing
+            structure_analysis = self._analyze_file_structure(figma_json)
+            if structure_analysis['can_process_screen_by_screen']:
+                # Mark for screen-by-screen processing instead of error
+                figma_json['_processing_mode'] = 'screen_by_screen'
+                figma_json['_structure_analysis'] = structure_analysis
+            else:
+                errors.append(f"Too many nodes: {node_count} (cannot process screen-by-screen)")
         
         return len(errors) == 0, errors
     
@@ -242,10 +249,241 @@ class FigmaProcessor:
         
         return count
     
+    def _analyze_file_structure(self, figma_json: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze Figma file structure to determine processing strategy"""
+        document = figma_json.get("document", {})
+        pages = document.get("children", [])
+        
+        analysis = {
+            "page_count": len(pages),
+            "screen_count": 0,
+            "total_nodes": self._count_nodes(figma_json),
+            "can_process_screen_by_screen": False,
+            "screens": []
+        }
+        
+        # Analyze each page for screens/frames
+        for page in pages:
+            if page.get("type") == "CANVAS":
+                frames = [child for child in page.get("children", []) 
+                         if child.get("type") == "FRAME"]
+                
+                for frame in frames:
+                    frame_node_count = self._count_nodes({"document": frame})
+                    analysis["screens"].append({
+                        "name": frame.get("name", "Unnamed"),
+                        "id": frame.get("id", ""),
+                        "page_name": page.get("name", ""),
+                        "node_count": frame_node_count,
+                        "can_process": frame_node_count <= 10000
+                    })
+                    analysis["screen_count"] += 1
+        
+        # Determine if we can process screen-by-screen
+        analysis["can_process_screen_by_screen"] = (
+            analysis["screen_count"] > 1 and 
+            all(screen["can_process"] for screen in analysis["screens"])
+        )
+        
+        return analysis
+    
+    def _select_priority_screens(self, screens: List[Dict[str, Any]], max_screens: int) -> List[Dict[str, Any]]:
+        """Select the most important screens for processing"""
+        # Priority keywords for screen selection
+        priority_keywords = [
+            'home', 'dashboard', 'main', 'landing', 'login', 'signup', 'profile',
+            'settings', 'admin', 'index', 'app', 'mobile', 'desktop'
+        ]
+        
+        # Score screens based on name and importance
+        scored_screens = []
+        for screen in screens:
+            score = 0
+            screen_name = screen.get('name', '').lower()
+            
+            # Check for priority keywords
+            for keyword in priority_keywords:
+                if keyword in screen_name:
+                    score += 10
+            
+            # Prefer larger screens (more content)
+            node_count = screen.get('metadata', {}).get('node_count', 0)
+            score += min(node_count / 100, 5)  # Cap at 5 points
+            
+            # Prefer screens with more components
+            component_count = len(screen.get('components', []))
+            score += min(component_count, 3)  # Cap at 3 points
+            
+            scored_screens.append((score, screen))
+        
+        # Sort by score and take top screens
+        scored_screens.sort(key=lambda x: x[0], reverse=True)
+        return [screen for _, screen in scored_screens[:max_screens]]
+    
+    def process_large_figma_screen_by_screen(
+        self, 
+        figma_json: Dict[str, Any],
+        max_screens: int = 20  # Process more screens but still limit for speed
+    ) -> Dict[str, Any]:
+        """Process large Figma files by processing each screen separately"""
+        structure_analysis = figma_json.get('_structure_analysis', {})
+        screens = structure_analysis.get('screens', [])
+        
+        if not screens:
+            raise Exception("No screens found for screen-by-screen processing")
+        
+        # Smart screen selection - prioritize main screens
+        if len(screens) > max_screens:
+            screens = self._select_priority_screens(screens, max_screens)
+        
+        processed_screens = {}
+        shared_components = []
+        
+        for screen in screens:
+            try:
+                # Extract screen data
+                screen_data = self._extract_screen_data(figma_json, screen)
+                
+                # Process screen
+                screen_result = self._process_single_screen(screen_data)
+                processed_screens[screen['name']] = screen_result
+                
+                # Extract shared components
+                screen_components = self._extract_components_from_screen(screen_data)
+                shared_components.extend(screen_components)
+                
+            except Exception as e:
+                processed_screens[screen['name']] = {
+                    "success": False,
+                    "error": str(e),
+                    "code": {}
+                }
+        
+        # Deduplicate shared components
+        unique_components = self._deduplicate_components(shared_components)
+        
+        return {
+            "success": True,
+            "processing_mode": "screen_by_screen",
+            "screens": processed_screens,
+            "shared_components": unique_components,
+            "navigation": self._generate_navigation_structure(screens),
+            "metadata": {
+                "total_screens": len(screens),
+                "successful_screens": len([s for s in processed_screens.values() if s.get("success", False)]),
+                "original_preserved": True
+            }
+        }
+    
+    def _extract_screen_data(self, figma_json: Dict[str, Any], screen: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract data for a specific screen"""
+        # Find the screen in the original JSON
+        document = figma_json.get("document", {})
+        
+        for page in document.get("children", []):
+            if page.get("type") == "CANVAS":
+                for frame in page.get("children", []):
+                    if frame.get("id") == screen["id"]:
+                        return {
+                            "screen": frame,
+                            "page": page,
+                            "metadata": {
+                                "screen_name": screen["name"],
+                                "page_name": page.get("name", ""),
+                                "node_count": screen["node_count"]
+                            }
+                        }
+        
+        raise Exception(f"Screen {screen['name']} not found in original JSON")
+    
+    def _process_single_screen(self, screen_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a single screen through the standard pipeline"""
+        screen = screen_data["screen"]
+        
+        # Create a proper Figma JSON structure for this screen
+        screen_json = {
+            "name": f"Screen: {screen_data['metadata']['screen_name']}",
+            "document": {
+                "id": screen["id"],
+                "name": screen["name"],
+                "type": "CANVAS",
+                "children": [screen]  # Wrap screen in a canvas structure
+            }
+        }
+        
+        # Process through standard chunking with larger chunks for efficiency
+        chunks = self.chunk_figma_json(screen_json, max_chunk_size=5000)
+        
+        return {
+            "success": True,
+            "screen_name": screen_data['metadata']['screen_name'],
+            "chunks": chunks,
+            "chunk_count": len(chunks),
+            "node_count": screen_data['metadata']['node_count']
+        }
+    
+    def _extract_components_from_screen(self, screen_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Extract reusable components from a screen"""
+        screen = screen_data["screen"]
+        components = []
+        
+        def find_components(node: Dict[str, Any]):
+            if node.get("type") == "COMPONENT":
+                components.append({
+                    "id": node.get("id"),
+                    "name": node.get("name"),
+                    "type": node.get("type"),
+                    "screen": screen_data['metadata']['screen_name']
+                })
+            
+            for child in node.get("children", []):
+                find_components(child)
+        
+        find_components(screen)
+        return components
+    
+    def _deduplicate_components(self, components: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove duplicate components based on name and structure"""
+        seen = set()
+        unique_components = []
+        
+        for component in components:
+            # Create a key based on name and type
+            key = f"{component['name']}_{component['type']}"
+            if key not in seen:
+                seen.add(key)
+                unique_components.append(component)
+        
+        return unique_components
+    
+    def _generate_navigation_structure(self, screens: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Generate navigation structure for multi-screen app"""
+        return {
+            "type": "multi_screen_app",
+            "screens": [
+                {
+                    "name": screen["name"],
+                    "route": f"/{screen['name'].lower().replace(' ', '-')}",
+                    "component": f"{screen['name'].replace(' ', '')}Screen"
+                }
+                for screen in screens
+            ],
+            "navigation": {
+                "type": "react_router",
+                "routes": [
+                    {
+                        "path": f"/{screen['name'].lower().replace(' ', '-')}",
+                        "component": f"{screen['name'].replace(' ', '')}Screen"
+                    }
+                    for screen in screens
+                ]
+            }
+        }
+    
     def chunk_figma_json(
         self,
         figma_json: Dict[str, Any],
-        max_chunk_size: int = 1000
+        max_chunk_size: int = 5000  # Much larger chunks for better efficiency
     ) -> List[Dict[str, Any]]:
         """Split Figma JSON into logical chunks"""
         chunks = []
@@ -254,27 +492,48 @@ class FigmaProcessor:
         document = figma_json.get("document", {})
         pages = document.get("children", [])
         
-        for page in pages:
-            if page.get("type") == "CANVAS":
-                # Extract frames from page
-                frames = page.get("children", [])
-                
-                for frame in frames:
-                    if frame.get("type") == "FRAME":
-                        # Create chunk for frame
-                        chunk = {
-                            "type": "frame",
-                            "page_name": page.get("name", ""),
-                            "frame_name": frame.get("name", ""),
+        # Handle case where document itself is a CANVAS (screen-by-screen processing)
+        if document.get("type") == "CANVAS":
+            frames = document.get("children", [])
+            for frame in frames:
+                if frame.get("type") == "FRAME":
+                    # Create chunk for frame
+                    chunk = {
+                        "type": "frame",
+                        "page_name": document.get("name", ""),
+                        "frame_name": frame.get("name", ""),
+                        "frame_id": frame.get("id", ""),
+                        "data": self._clean_node(frame),
+                        "metadata": {
+                            "page_id": document.get("id", ""),
                             "frame_id": frame.get("id", ""),
-                            "data": self._clean_node(frame),
-                            "metadata": {
-                                "page_id": page.get("id", ""),
-                                "frame_id": frame.get("id", ""),
-                                "chunk_type": "frame"
-                            }
+                            "chunk_type": "frame"
                         }
-                        chunks.append(chunk)
+                    }
+                    chunks.append(chunk)
+        else:
+            # Standard processing for pages
+            for page in pages:
+                if page.get("type") == "CANVAS":
+                    # Extract frames from page
+                    frames = page.get("children", [])
+                    
+                    for frame in frames:
+                        if frame.get("type") == "FRAME":
+                            # Create chunk for frame
+                            chunk = {
+                                "type": "frame",
+                                "page_name": page.get("name", ""),
+                                "frame_name": frame.get("name", ""),
+                                "frame_id": frame.get("id", ""),
+                                "data": self._clean_node(frame),
+                                "metadata": {
+                                    "page_id": page.get("id", ""),
+                                    "frame_id": frame.get("id", ""),
+                                    "chunk_type": "frame"
+                                }
+                            }
+                            chunks.append(chunk)
                         
                         # Extract components from frame
                         components = self._extract_components(frame)
@@ -412,6 +671,20 @@ class FigmaProcessor:
             is_valid, errors = self.validate_figma_json(figma_json)
             if not is_valid:
                 raise Exception(f"Invalid Figma JSON: {', '.join(errors)}")
+            
+            # 3.5. Check if we need screen-by-screen processing
+            if figma_json.get('_processing_mode') == 'screen_by_screen':
+                # Process large files screen-by-screen
+                screen_by_screen_result = self.process_large_figma_screen_by_screen(figma_json)
+                return {
+                    "file_key": file_key,
+                    "file_name": figma_json.get("name", ""),
+                    "processing_mode": "screen_by_screen",
+                    "screens": screen_by_screen_result["screens"],
+                    "shared_components": screen_by_screen_result["shared_components"],
+                    "navigation": screen_by_screen_result["navigation"],
+                    "metadata": screen_by_screen_result["metadata"]
+                }
             
             # 4. Extract and process images if requested
             if include_images:

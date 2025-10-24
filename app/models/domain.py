@@ -78,7 +78,7 @@ class LLMRequest:
     
     model: str
     prompt: str
-    max_tokens: int = 8000
+    max_tokens: int = 20000  # Pushing to maximum possible limit for Gemini models
     temperature: float = 0.7
     top_p: float = 0.9
     metadata: Dict[str, Any] = field(default_factory=dict)

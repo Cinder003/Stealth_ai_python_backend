@@ -90,7 +90,7 @@ async def generate_code(
         llm_response = await llm_service.generate_code(
             prompt=complete_prompt,
             model=request.model.value,
-            max_tokens=8000,
+            max_tokens=20000,  # Pushing to maximum possible limit for complete fullstack generation
             temperature=0.7 if not request.production_ready else 0.5
         )
         

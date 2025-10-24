@@ -353,9 +353,9 @@ class EnhancedGenerationController:
             # Generate code
             llm_response = await self.llm_service.generate_code(
                 prompt=prompt,
-                model="gemini-2.0-flash-exp",
+                model="gemini-2.5-pro",
                 temperature=0.7,
-                max_tokens=6000
+                max_tokens=12000  # Increased for complete enhanced generation
             )
             
             # Extract code

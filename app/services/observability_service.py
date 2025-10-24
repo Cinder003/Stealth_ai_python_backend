@@ -98,7 +98,7 @@ class ObservabilityService:
                 model=model,
                 model_parameters={
                     "temperature": metadata.get("temperature", 0.7) if metadata else 0.7,
-                    "max_tokens": metadata.get("max_tokens", 8000) if metadata else 8000
+                    "max_tokens": metadata.get("max_tokens", 20000) if metadata else 20000
                 },
                 input=prompt,
                 output=response,

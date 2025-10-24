@@ -243,7 +243,7 @@ curl -X POST http://localhost:6000/api/v1/generate_code \
 ### Fast Generation (Default)
 ```json
 {
-  "model": "gemini/gemini-1.5-flash-latest"
+  "model": "gemini-2.5-flash"
 }
 ```
 - Fastest response
@@ -253,7 +253,7 @@ curl -X POST http://localhost:6000/api/v1/generate_code \
 ### High Quality
 ```json
 {
-  "model": "gemini/gemini-1.5-pro-latest"
+  "model": "gemini-2.5-pro"
 }
 ```
 - Best code quality
@@ -445,7 +445,7 @@ curl http://localhost:6000/api/v1/metrics
 
 ### Slow Generation
 
-- Try using `gemini-1.5-flash` model
+- Try using `gemini-2.5-flash` model
 - Reduce scope of request
 - Check LLM service health
 

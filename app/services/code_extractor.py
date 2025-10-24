@@ -12,8 +12,9 @@ logger = logging.getLogger("code_extractor")
 logger.setLevel(logging.INFO)
 
 # Regex: captures `File: path` followed by a fenced code block ```lang\n...```
+# Updated to match the actual LLM output format where language is on same line as opening backticks
 FILE_BLOCK_RE = re.compile(
-    r"File:\s*(?P<path>[^\n]+)\n```(?:[a-zA-Z0-9+-]*)\n(?P<content>.*?)```",
+    r"```\nFile:\s*(?P<path>[^\n]+)\n```\n```(?:[a-zA-Z0-9+-]*)\n(?P<content>.*?)```",
     re.DOTALL | re.MULTILINE
 )
 
@@ -54,14 +55,31 @@ class CodeExtractor:
         """
         Parse LLM output and return [(relative_path, content), ...]
         """
+        # Debug: Log first 500 chars of LLM text to see format
+        logger.info("LLM text preview (first 500 chars): %s", llm_text[:500])
+        
         matches = list(FILE_BLOCK_RE.finditer(llm_text))
         logger.info("Found %d file blocks in LLM output", len(matches))
+        
+        # If no matches, try alternative patterns
+        if len(matches) == 0:
+            logger.warning("No matches found with primary regex, trying alternative patterns...")
+            # Try alternative pattern: ```path\ncontent```
+            alt_pattern = re.compile(r"```(?P<path>[^\n]+)\n(?P<content>.*?)```", re.DOTALL | re.MULTILINE)
+            matches = list(alt_pattern.finditer(llm_text))
+            logger.info("Found %d matches with alternative pattern", len(matches))
+        
         files = []
-        for m in matches:
+        for i, m in enumerate(matches):
             rel_path = m.group("path").strip()
             content = m.group("content")
             # dedent
             content = textwrap.dedent(content).rstrip() + "\n"
+            logger.info(f"File {i+1}: {rel_path} -> {len(content)} chars")
+            if len(content.strip()) == 0:
+                logger.warning(f"Empty content for file: {rel_path}")
+                # Log the raw content to debug
+                logger.warning(f"Raw content: {repr(content[:100])}")
             files.append((rel_path, content))
         return files
 

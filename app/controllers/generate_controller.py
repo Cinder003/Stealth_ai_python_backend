@@ -63,9 +63,9 @@ class GenerateController:
             # Generate code using LLM
             llm_response = await self.llm_service.generate_code(
                 prompt=prompt,
-                model="gemini-2.0-flash-exp",
+                model="gemini-2.5-pro",
                 temperature=0.7,
-                max_tokens=4000
+                max_tokens=10000  # Increased for complete generation
             )
             
             # Extract code from response

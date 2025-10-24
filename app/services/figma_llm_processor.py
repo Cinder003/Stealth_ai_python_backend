@@ -142,8 +142,8 @@ class FigmaLLMProcessor:
             # Create LLM request
             llm_request = LLMRequest(
                 prompt=prompt,
-                model="gemini-1.5-pro",
-                max_tokens=4000,
+                model="gemini-2.5-pro",  # Keep the same high-quality model
+                max_tokens=20000,  # Keep maximum tokens for quality
                 temperature=0.1,
                 top_p=0.9
             )
@@ -154,6 +154,76 @@ class FigmaLLMProcessor:
                 config=self.retry_config,
                 request=llm_request
             )
+            
+            # Debug: Log the raw LLM response to file (avoid console spam)
+            print("DEBUG: ENTERING DEBUG LOGGING SECTION")
+            import os
+            debug_file = "/app/storage/logs/debug_llm_responses.log"
+            os.makedirs(os.path.dirname(debug_file), exist_ok=True)
+            
+            # Console: Show detailed information
+            print(f"DEBUG: LLM Response for chunk {chunk['metadata'].get('chunk_id', 'unknown')}:")
+            print(f"DEBUG: Response success: {llm_response.success}")
+            print(f"DEBUG: Response length: {len(llm_response.content) if llm_response.content else 0}")
+            
+            # Console: Show more details
+            if llm_response.content:
+                print(f"DEBUG: First 200 chars: {llm_response.content[:200]}")
+                print(f"DEBUG: Contains 'Frontend': {'Frontend' in llm_response.content}")
+                print(f"DEBUG: Contains 'Backend': {'Backend' in llm_response.content}")
+                print(f"DEBUG: Contains 'File:': {'File:' in llm_response.content}")
+                print(f"DEBUG: Contains '```': {'```' in llm_response.content}")
+                print(f"DEBUG: Contains '###': {'###' in llm_response.content}")
+                print(f"DEBUG: Full response saved to: {debug_file}")
+            
+            # Save full response to file (no truncation)
+            with open(debug_file, "a", encoding="utf-8") as f:
+                f.write(f"\n=== LLM Response for chunk {chunk['metadata'].get('chunk_id', 'unknown')} ===\n")
+                f.write(f"Response success: {llm_response.success}\n")
+                f.write(f"Response length: {len(llm_response.content) if llm_response.content else 0}\n")
+                
+                if llm_response.content:
+                    # Save the FULL response to file
+                    f.write(f"\n--- FULL RESPONSE START ---\n")
+                    f.write(llm_response.content)
+                    f.write(f"\n--- FULL RESPONSE END ---\n")
+                
+                if llm_response.content:
+                    # Check if response contains expected patterns
+                    has_frontend = "## Frontend Code" in llm_response.content or "Frontend Code" in llm_response.content
+                    has_backend = "## Backend Code" in llm_response.content or "Backend Code" in llm_response.content
+                    
+                    print(f"DEBUG: Contains Frontend Code section: {has_frontend}")
+                    print(f"DEBUG: Contains Backend Code section: {has_backend}")
+                    
+                    f.write(f"Contains Frontend Code section: {has_frontend}\n")
+                    f.write(f"Contains Backend Code section: {has_backend}\n")
+                    
+                    # Show first 500 chars to see the actual code
+                    print(f"DEBUG: First 500 chars of generated code:")
+                    print("=" * 60)
+                    print(llm_response.content[:500])
+                    print("=" * 60)
+                    
+                    f.write(f"First 1000 chars: {llm_response.content[:1000]}\n")
+                    f.write(f"Last 200 chars: {llm_response.content[-200:]}\n")
+                    
+                    # Check for common patterns that might indicate code
+                    has_tsx = ".tsx" in llm_response.content or "tsx" in llm_response.content
+                    has_jsx = "jsx" in llm_response.content or "JSX" in llm_response.content
+                    has_react = "React" in llm_response.content or "react" in llm_response.content
+                    has_typescript = "TypeScript" in llm_response.content or "typescript" in llm_response.content
+                    
+                    print(f"DEBUG: Contains .tsx files: {has_tsx}")
+                    print(f"DEBUG: Contains JSX: {has_jsx}")
+                    print(f"DEBUG: Contains React: {has_react}")
+                    print(f"DEBUG: Contains TypeScript: {has_typescript}")
+                    
+                    f.write(f"Contains .tsx files: {has_tsx}\n")
+                    f.write(f"Contains JSX: {has_jsx}\n")
+                    f.write(f"Contains React: {has_react}\n")
+                    f.write(f"Contains TypeScript: {has_typescript}\n")
+                    f.write("=" * 80 + "\n")
             
             if llm_response.success:
                 processing_time = (datetime.now() - start_time).total_seconds()
@@ -329,46 +399,140 @@ class FigmaLLMProcessor:
             "components": []
         }
         
-        lines = code_text.split('\n')
-        current_section = None
-        current_file = None
+        if not code_text:
+            print("DEBUG: No code text to parse")
+            return result
+            
+        print(f"DEBUG: Parsing code text, length: {len(code_text)}")
+        print(f"DEBUG: First 500 chars: {code_text[:500]}")
+        
+        # Save the full code text to file for inspection
+        import os
+        debug_file = "/app/storage/logs/parsing_debug.log"
+        os.makedirs(os.path.dirname(debug_file), exist_ok=True)
+        
+        with open(debug_file, "a", encoding="utf-8") as f:
+            f.write(f"\n=== PARSING DEBUG ===\n")
+            f.write(f"Code text length: {len(code_text)}\n")
+            f.write(f"Code text preview: {code_text[:1000]}\n")
+            f.write("=" * 50 + "\n")
+        
+        # New comprehensive parsing logic
+        return self._parse_code_comprehensive(code_text)
+    
+    def _parse_code_comprehensive(self, code_text: str) -> Dict[str, Any]:
+        """Comprehensive parsing logic for the actual LLM output format"""
+        result = {
+            "frontend": {},
+            "backend": {},
+            "components": []
+        }
+        
+        print("DEBUG: Starting comprehensive parsing")
+        
+        # Split into sections based on major headers
+        sections = self._split_into_sections(code_text)
+        print(f"DEBUG: Found {len(sections)} sections")
+        
+        for section_name, section_content in sections.items():
+            print(f"DEBUG: Processing section: {section_name}")
+            
+            # Determine if this is frontend or backend
+            if any(keyword in section_name.lower() for keyword in ['frontend', 'react', 'component', 'css', 'html']):
+                target_dict = result["frontend"]
+            elif any(keyword in section_name.lower() for keyword in ['backend', 'server', 'api', 'node', 'express']):
+                target_dict = result["backend"]
+            else:
+                # Default to frontend for unknown sections
+                target_dict = result["frontend"]
+            
+            # Parse files within this section
+            files = self._extract_files_from_section(section_content)
+            print(f"DEBUG: Found {len(files)} files in {section_name}")
+            
+            for filename, content in files.items():
+                target_dict[filename] = content
+                print(f"DEBUG: Added file: {filename} ({len(content)} chars)")
+        
+        print(f"DEBUG: Parsing complete - Frontend: {len(result['frontend'])}, Backend: {len(result['backend'])}")
+        return result
+    
+    def _split_into_sections(self, code_text: str) -> Dict[str, str]:
+        """Split code text into major sections"""
+        sections = {}
+        current_section = "General"
         current_content = []
         
+        lines = code_text.split('\n')
+        
         for line in lines:
-            line = line.strip()
-            
-            # Detect section headers
-            if line.startswith('## Frontend Code'):
-                current_section = 'frontend'
-                continue
-            elif line.startswith('## Backend Code'):
-                current_section = 'backend'
-                continue
-            
-            # Detect file headers
-            if line.startswith('### ') and current_section:
+            # Check for major section headers (## Frontend Code, ## Backend Code, etc.)
+            if line.startswith('## ') and any(keyword in line.lower() for keyword in ['frontend', 'backend', 'code']):
+                # Save previous section
+                if current_content:
+                    sections[current_section] = '\n'.join(current_content)
+                
+                # Start new section
+                current_section = line.strip()
+                current_content = []
+            else:
+                current_content.append(line)
+        
+        # Save last section
+        if current_content:
+            sections[current_section] = '\n'.join(current_content)
+        
+        return sections
+    
+    def _extract_files_from_section(self, section_content: str) -> Dict[str, str]:
+        """Extract individual files from a section"""
+        files = {}
+        current_file = None
+        current_content = []
+        in_code_block = False
+        
+        lines = section_content.split('\n')
+        
+        for line in lines:
+            # Check for file headers (### `filename` or ### filename)
+            if line.startswith('### `') and line.endswith('`'):
                 # Save previous file
                 if current_file and current_content:
-                    result[current_section][current_file] = '\n'.join(current_content)
+                    files[current_file] = '\n'.join(current_content)
                 
                 # Start new file
-                current_file = line[4:].strip()
+                current_file = line[4:-1].strip()  # Remove "### `" and "`"
                 current_content = []
+                in_code_block = False
+                print(f"DEBUG: Found file header (backticks): {current_file}")
+                continue
+            elif line.startswith('### ') and not line.startswith('### `'):
+                # Handle ### filename format (without backticks)
+                # Save previous file
+                if current_file and current_content:
+                    files[current_file] = '\n'.join(current_content)
+                
+                # Start new file
+                current_file = line[3:].strip()  # Remove "### "
+                current_content = []
+                in_code_block = False
+                print(f"DEBUG: Found file header (no backticks): {current_file}")
                 continue
             
-            # Detect code blocks
-            if line.startswith('```'):
+            # Check for code block start/end
+            if line.strip().startswith('```'):
+                in_code_block = not in_code_block
                 continue
             
             # Collect content
-            if current_file and current_section:
+            if current_file:
                 current_content.append(line)
         
         # Save last file
         if current_file and current_content:
-            result[current_section][current_file] = '\n'.join(current_content)
+            files[current_file] = '\n'.join(current_content)
         
-        return result
+        return files
     
     def _merge_file_content(
         self,
@@ -393,7 +557,8 @@ class FigmaLLMProcessor:
         figma_chunks: List[Dict[str, Any]],
         user_message: Optional[str] = None,
         framework: str = "react",
-        backend_framework: str = "nodejs"
+        backend_framework: str = "nodejs",
+        use_cache: bool = True
     ) -> Dict[str, Any]:
         """Complete Figma to code processing pipeline"""
         try:

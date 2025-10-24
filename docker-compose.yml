@@ -18,6 +18,8 @@ services:
     volumes:
       - ./storage:/app/storage
       - ./prompts:/app/prompts:ro
+      - ./generated_projects:/app/storage/generated  # Direct local access
+      - ./downloads:/app/storage/downloads           # Download folder
     depends_on:
       redis:
         condition: service_healthy
@@ -31,6 +33,11 @@ services:
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1000m"
+        max-file: "5"
     networks:
       - codegen_network
 

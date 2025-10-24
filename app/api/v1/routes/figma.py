@@ -129,28 +129,107 @@ async def generate_from_figma(
         raise HTTPException(status_code=500, detail=f"Code generation failed: {str(e)}")
 
 
+class FigmaProcessRequest(BaseModel):
+    """Request for processing Figma URL"""
+    figma_url: str = Field(..., description="Figma file URL")
+    user_message: Optional[str] = Field(default=None, description="User message for code generation")
+    framework: str = Field(default="react", description="Frontend framework")
+    backend_framework: str = Field(default="nodejs", description="Backend framework")
+
+
 @router.post("/process-url")
 async def process_figma_url(
-    figma_url: str,
-    user_message: Optional[str] = None,
-    framework: str = "react",
-    backend_framework: str = "nodejs",
+    request: FigmaProcessRequest,
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Process Figma URL through complete pipeline
+    Process Figma URL through complete pipeline (legacy screen-by-screen approach)
     """
     try:
         result = await figma_controller.process_figma_url(
-            figma_url=figma_url,
-            user_message=user_message,
-            framework=framework,
-            backend_framework=backend_framework,
+            figma_url=request.figma_url,
+            user_message=request.user_message,
+            framework=request.framework,
+            backend_framework=request.backend_framework,
             user_id=current_user.get("id")
         )
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Figma URL processing failed: {str(e)}")
+
+
+@router.post("/process-url-streaming")
+async def process_figma_url_streaming(
+    request: FigmaProcessRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Process Figma URL using streaming approach to avoid token explosion
+    """
+    try:
+        result = await figma_controller.process_figma_url_streaming(
+            figma_url=request.figma_url,
+            user_message=request.user_message,
+            framework=request.framework,
+            backend_framework=request.backend_framework,
+            user_id=current_user.get("id")
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Figma URL streaming processing failed: {str(e)}")
+
+
+@router.post("/process-url-fast")
+async def process_figma_url_fast(
+    request: FigmaProcessRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Process Figma URL using ULTRA-FAST approach (10-15x faster)
+    - Batch size: 10 components (vs 3)
+    - Parallel batches: 5 concurrent (vs 1)
+    - Reduced delays: 0.5s (vs 2s)
+    - Expected time: 15-30 minutes (vs 3-6 hours)
+    """
+    try:
+        result = await figma_controller.process_figma_url_fast(
+            figma_url=request.figma_url,
+            user_message=request.user_message,
+            framework=request.framework,
+            backend_framework=request.backend_framework,
+            user_id=current_user.get("id")
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Figma URL fast processing failed: {str(e)}")
+
+
+@router.post("/process-url-lossless")
+async def process_figma_url_lossless(
+    request: FigmaProcessRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Process Figma URL using TRULY LOSSLESS approach
+    - Multi-pass architecture (6 passes)
+    - Global layout graph extraction
+    - Centralized design system
+    - Context-aware component generation
+    - Backend from real functional context
+    - Consistency validation
+    - Expected time: 20-40 minutes (vs 3-6 hours)
+    """
+    try:
+        result = await figma_controller.process_figma_url_lossless(
+            figma_url=request.figma_url,
+            user_message=request.user_message,
+            framework=request.framework,
+            backend_framework=request.backend_framework,
+            user_id=current_user.get("id")
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Figma URL lossless processing failed: {str(e)}")
 
 
 @router.post("/extract-file-key")

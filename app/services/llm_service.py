@@ -86,6 +86,26 @@ class LLMService:
             usage = result.get("usage", {})
             tokens_used = usage.get("total_tokens", 0)
             
+            # Debug: Log content details
+            print(f"DEBUG LLM Service: Content length: {len(content) if content else 0}")
+            print(f"DEBUG LLM Service: Content preview: {content[:100] if content else 'None'}")
+            print(f"DEBUG LLM Service: Content is empty: {not content}")
+            
+            # Save full content to file for inspection
+            import os
+            debug_file = "/app/storage/logs/llm_full_responses.log"
+            os.makedirs(os.path.dirname(debug_file), exist_ok=True)
+            
+            with open(debug_file, "a", encoding="utf-8") as f:
+                f.write(f"\n=== LLM FULL RESPONSE ===\n")
+                f.write(f"Model: {request.model}\n")
+                f.write(f"Tokens used: {tokens_used}\n")
+                f.write(f"Content length: {len(content) if content else 0}\n")
+                f.write(f"Content:\n{content}\n")
+                f.write("=" * 100 + "\n")
+            
+            print(f"DEBUG LLM Service: Full response saved to {debug_file}")
+            
             logger.info(
                 f"Completion generated successfully. Tokens used: {tokens_used}"
             )
@@ -123,8 +143,8 @@ class LLMService:
     async def generate_code(
         self,
         prompt: str,
-        model: str = "gemini/gemini-flash-latest",
-        max_tokens: int = 8000,
+        model: str = "gemini-2.5-pro",  # Updated to Gemini 2.5 Pro
+        max_tokens: int = 20000,  # Pushing to maximum possible limit for Gemini models
         temperature: float = 0.7
     ) -> str:
         """
